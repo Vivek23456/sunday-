@@ -1,0 +1,472 @@
+import json
+import subprocess
+
+import ollama
+import psutil
+
+from agent.permissions import requires_confirmation
+
+from tools.files import find_files
+from tools.browser import open_url, search_web
+from tools.playwright_browser import browser
+from tools.windows import (
+    close_window,
+    close_all_windows,
+)
+
+
+MODEL = "llama3.2"
+
+client = ollama.Client(
+    host="http://127.0.0.1:11434",
+    timeout=30,
+)
+
+
+SYSTEM_PROMPT = """
+You are SUNDAY, a local AI assistant running on the user's laptop.
+
+Select exactly one available tool.
+
+AVAILABLE TOOLS:
+
+1. open_application
+   arguments:
+   {"name": "vscode" | "chrome" | "terminal"}
+
+2. system_status
+   arguments:
+   {}
+
+3. find_files
+   arguments:
+   {"query": "search term"}
+
+4. open_url
+   arguments:
+   {"url": "https://example.com"}
+
+5. search_web
+   arguments:
+   {"query": "search terms"}
+
+6. browser_open
+   arguments:
+   {"url": "https://example.com"}
+
+7. browser_search
+   arguments:
+   {"query": "search terms"}
+
+8. browser_close
+   arguments:
+   {}
+
+9. close_window
+   arguments:
+   {"title": "window title"}
+
+10. close_all_windows
+    arguments:
+    {}
+
+11. close_browser_tab
+    arguments:
+    {}
+
+12. close_all_browser_tabs
+    arguments:
+    {}
+
+13. run_shell
+    arguments:
+    {"command": "command to execute"}
+
+14. greet
+    arguments:
+    {}
+
+15. unknown
+    arguments:
+    {}
+
+RULES:
+
+- Return ONLY valid JSON.
+- Never return markdown.
+- Never execute commands yourself.
+- Never invent tools.
+- Use find_files for projects, files, and directories.
+- Use system_status for CPU, RAM, memory, or computer-status questions.
+- Use open_application to launch applications.
+- Use open_url for simple URL opening.
+- Use search_web for simple web searching.
+- Use browser_open for browser automation.
+- Use browser_search for browser-based searching.
+- Use close_window when the user wants a specific application window closed.
+- Use close_all_windows when the user explicitly wants all windows closed.
+- Use close_browser_tab for the current browser tab.
+- Use close_all_browser_tabs when the user wants all browser tabs closed.
+- Use run_shell only when the user explicitly requests a shell command.
+- Use greet for greetings.
+
+Examples:
+
+User: open visual studio code
+{"tool":"open_application","arguments":{"name":"vscode"}}
+
+User: open chrome
+{"tool":"open_application","arguments":{"name":"chrome"}}
+
+User: how is my computer doing
+{"tool":"system_status","arguments":{}}
+
+User: find my MEV engine
+{"tool":"find_files","arguments":{"query":"mev"}}
+
+User: open GitHub
+{"tool":"open_url","arguments":{"url":"https://github.com"}}
+
+User: search the web for Yellowstone gRPC Rust
+{"tool":"search_web","arguments":{"query":"Yellowstone gRPC Rust"}}
+
+User: open GitHub in the browser
+{"tool":"browser_open","arguments":{"url":"https://github.com"}}
+
+User: search Google for Rust Tokio async
+{"tool":"browser_search","arguments":{"query":"Rust Tokio async"}}
+
+User: close the browser
+{"tool":"browser_close","arguments":{}}
+
+User: close Visual Studio Code
+{"tool":"close_window","arguments":{"title":"Visual Studio Code"}}
+
+User: close Chrome
+{"tool":"close_window","arguments":{"title":"Google Chrome"}}
+
+User: close all windows
+{"tool":"close_all_windows","arguments":{}}
+
+User: close this browser tab
+{"tool":"close_browser_tab","arguments":{}}
+
+User: close all browser tabs
+{"tool":"close_all_browser_tabs","arguments":{}}
+
+User: run git status
+{"tool":"run_shell","arguments":{"command":"git status"}}
+
+User: hi
+{"tool":"greet","arguments":{}}
+"""
+
+
+def classify_command(text: str) -> dict:
+    response = client.chat(
+        model=MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": text,
+            },
+        ],
+    )
+
+    raw = response["message"]["content"].strip()
+
+    try:
+        return json.loads(raw)
+
+    except json.JSONDecodeError:
+        print("Invalid JSON from Ollama:")
+        print(raw)
+
+        return {
+            "tool": "unknown",
+            "arguments": {},
+        }
+
+
+def execute_tool(tool: str, arguments: dict) -> str:
+
+    if tool == "greet":
+        return "Hi. I'm Sunday."
+
+    # ---------------------------------------------
+    # APPLICATIONS
+    # ---------------------------------------------
+
+    if tool == "open_application":
+
+        name = arguments.get("name")
+
+        commands = {
+            "vscode": ["code"],
+            "chrome": ["google-chrome"],
+            "terminal": ["gnome-terminal"],
+        }
+
+        command = commands.get(name)
+
+        if command is None:
+            return f"I don't know how to open {name}."
+
+        try:
+            subprocess.Popen(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            return f"Opening {name}."
+
+        except Exception as exc:
+            return f"I couldn't open {name}: {exc}"
+
+    # ---------------------------------------------
+    # SYSTEM STATUS
+    # ---------------------------------------------
+
+    if tool == "system_status":
+
+        cpu = psutil.cpu_percent(interval=0.5)
+        memory = psutil.virtual_memory()
+
+        return (
+            f"CPU usage is {cpu:.0f} percent. "
+            f"Memory usage is {memory.percent:.0f} percent."
+        )
+
+    # ---------------------------------------------
+    # FILE SEARCH
+    # ---------------------------------------------
+
+    if tool == "find_files":
+
+        query = arguments.get(
+            "query",
+            "",
+        ).strip()
+
+        if not query:
+            return (
+                "Tell me what file or "
+                "project to search for."
+            )
+
+        matches = find_files(query)
+
+        if not matches:
+            return (
+                f"I couldn't find anything "
+                f"matching {query}."
+            )
+
+        if len(matches) == 1:
+            return f"I found it at {matches[0]}."
+
+        formatted = "\n".join(
+            f"- {path}"
+            for path in matches[:5]
+        )
+
+        return (
+            f"I found {len(matches)} matches:\n"
+            f"{formatted}"
+        )
+
+    # ---------------------------------------------
+    # SIMPLE WEB
+    # ---------------------------------------------
+
+    if tool == "open_url":
+
+        url = arguments.get(
+            "url",
+            "",
+        ).strip()
+
+        if not url:
+            return "Tell me which URL to open."
+
+        return open_url(url)
+
+    if tool == "search_web":
+
+        query = arguments.get(
+            "query",
+            "",
+        ).strip()
+
+        if not query:
+            return (
+                "Tell me what you want "
+                "to search for."
+            )
+
+        return search_web(query)
+
+    # ---------------------------------------------
+    # PLAYWRIGHT BROWSER
+    # ---------------------------------------------
+
+    if tool == "browser_open":
+
+        url = arguments.get(
+            "url",
+            "",
+        ).strip()
+
+        if not url:
+            return "Tell me which page to open."
+
+        return browser.open(url)
+
+    if tool == "browser_search":
+
+        query = arguments.get(
+            "query",
+            "",
+        ).strip()
+
+        if not query:
+            return (
+                "Tell me what you want "
+                "to search for."
+            )
+
+        return browser.search_google(query)
+
+    if tool == "browser_close":
+        return browser.close()
+
+    if tool == "close_browser_tab":
+        return browser.close_current_tab()
+
+    if tool == "close_all_browser_tabs":
+        return browser.close_all_tabs()
+
+    # ---------------------------------------------
+    # WINDOWS
+    # ---------------------------------------------
+
+    if tool == "close_window":
+
+        title = arguments.get(
+            "title",
+            "",
+        ).strip()
+
+        if not title:
+            return (
+                "Tell me which window "
+                "to close."
+            )
+
+        return close_window(title)
+
+    if tool == "close_all_windows":
+        return close_all_windows()
+
+    # ---------------------------------------------
+    # SHELL
+    # ---------------------------------------------
+
+    if tool == "run_shell":
+
+        command = arguments.get(
+            "command",
+            "",
+        ).strip()
+
+        if not command:
+            return "No shell command was provided."
+
+        try:
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            output = result.stdout.strip()
+            error = result.stderr.strip()
+
+            if result.returncode != 0:
+
+                return (
+                    f"Command failed with exit code "
+                    f"{result.returncode}.\n"
+                    f"{error}"
+                )
+
+            return (
+                output
+                or "Command completed successfully."
+            )
+
+        except subprocess.TimeoutExpired:
+            return "The command timed out."
+
+    return "I don't know how to do that yet."
+
+
+def execute_command(text: str) -> str:
+
+    print()
+    print(f"Agent input: {text}")
+
+    decision = classify_command(text)
+
+    print(
+        "Tool decision:",
+        json.dumps(
+            decision,
+            indent=2,
+        ),
+    )
+
+    tool = decision.get(
+        "tool",
+        "unknown",
+    )
+
+    arguments = decision.get(
+        "arguments",
+        {},
+    )
+
+    if requires_confirmation(tool):
+
+        print()
+        print(
+            "⚠️ Confirmation required."
+        )
+
+        print(
+            f"Tool: {tool}"
+        )
+
+        print(
+            f"Arguments: {arguments}"
+        )
+
+        # Voice confirmation is handled by app.py.
+        # execute_tool is called only after approval.
+
+        return (
+            "__REQUIRES_CONFIRMATION__"
+        )
+
+    return execute_tool(
+        tool,
+        arguments,
+    )
