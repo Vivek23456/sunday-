@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 SUNDAY — Local Laptop AI Agent
 
 SUNDAY is a local AI assistant for Ubuntu/Linux that runs continuously in the background and lets you control your laptop with natural voice commands.
