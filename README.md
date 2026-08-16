@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 SUNDAY — Local Laptop AI Agent
 
 SUNDAY is a local AI assistant for Ubuntu/Linux that runs continuously in the background and lets you control your laptop with natural voice commands.
@@ -351,3 +352,44 @@ Latency/observability instrumentation
 Status
 
 SUNDAY is an actively developed local laptop agent focused on practical desktop automation, local inference, and voice-first interaction on Ubuntu.
+=======
+# SUNDAY
+
+## Local AI Laptop Agent
+
+SUNDAY is a local AI assistant for Ubuntu designed to act as a persistent voice-controlled agent for the laptop.
+
+It combines local speech recognition, a local LLM, local text-to-speech, a lightweight desktop UI, memory, project awareness, Linux controls, browser automation, and YouTube control through an existing Brave session.
+
+---
+
+## Features
+
+### Voice control
+
+SUNDAY can listen for voice commands and execute actions such as:
+
+- Open applications
+- Search files and projects
+- Open URLs
+- Search the web
+- Control browser tabs
+- Control windows
+- Check system status
+- Execute approved shell commands
+- Control YouTube music
+- Remember and recall information
+
+### Wake system
+
+SUNDAY can remain in the background while sleeping and wake through a double-clap gesture.
+
+```text
+SLEEPING
+   ↓
+👏👏
+   ↓
+WAKING
+   ↓
+LISTENING
+>>>>>>> 9bebda1 (updated the readme)
