@@ -4,7 +4,6 @@ import time
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
-import torch
 import webrtcvad
 from scipy.signal import resample_poly
 
@@ -13,7 +12,7 @@ from scipy.signal import resample_poly
 # MICROPHONE
 # ============================================================
 
-DEVICE = 4
+DEVICE = "pipewire"
 
 INPUT_RATE = 48000
 OUTPUT_RATE = 16000
@@ -56,7 +55,6 @@ def resample_to_16k(
 def to_pcm16(
     audio: np.ndarray,
 ) -> bytes:
-
     audio = np.clip(
         audio,
         -1.0,
@@ -76,6 +74,9 @@ def record_command(
 
     print()
     print("🎤 Listening...")
+    print(
+        f"Using input device: {DEVICE}"
+    )
 
     queue: collections.deque[np.ndarray] = (
         collections.deque()
@@ -136,8 +137,10 @@ def record_command(
                 if len(frame) != FRAME_SAMPLES:
                     continue
 
-                # Convert this 48 kHz frame to 16 kHz
-                # for WebRTC VAD.
+                # ------------------------------------------------
+                # 48 kHz -> 16 kHz for WebRTC VAD
+                # ------------------------------------------------
+
                 frame_16k = resample_to_16k(
                     frame
                 )
@@ -151,13 +154,15 @@ def record_command(
                     OUTPUT_RATE,
                 )
 
-                # --------------------------------------------
+                # ------------------------------------------------
                 # WAITING FOR SPEECH
-                # --------------------------------------------
+                # ------------------------------------------------
 
                 if not speech_started:
 
-                    pre_roll.append(frame)
+                    pre_roll.append(
+                        frame
+                    )
 
                     if is_speech:
 
@@ -167,6 +172,7 @@ def record_command(
                             speech_ms
                             >= MIN_SPEECH_MS
                         ):
+
                             speech_started = True
 
                             recorded.extend(
@@ -179,9 +185,9 @@ def record_command(
 
                         speech_ms = 0
 
-                # --------------------------------------------
+                # ------------------------------------------------
                 # SPEECH IN PROGRESS
-                # --------------------------------------------
+                # ------------------------------------------------
 
                 else:
 
@@ -203,9 +209,9 @@ def record_command(
                         ):
                             break
 
-                # --------------------------------------------
+                # ------------------------------------------------
                 # TIMEOUTS
-                # --------------------------------------------
+                # ------------------------------------------------
 
                 elapsed = (
                     time.monotonic()
@@ -246,25 +252,25 @@ def record_command(
 
         return None
 
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
     # COMBINE 48 kHz AUDIO
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
 
     audio_48k = np.concatenate(
         recorded
     )
 
-    # --------------------------------------------------------
-    # RESAMPLE 48 kHz → 16 kHz
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
+    # RESAMPLE 48 kHz -> 16 kHz
+    # ------------------------------------------------------------
 
     audio_16k = resample_to_16k(
         audio_48k
     )
 
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
     # GENTLE NORMALIZATION
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
 
     peak = float(
         np.max(
@@ -283,9 +289,9 @@ def record_command(
 
         audio_16k *= gain
 
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
     # SAVE
-    # --------------------------------------------------------
+    # ------------------------------------------------------------
 
     sf.write(
         output_file,

@@ -4,10 +4,7 @@ import numpy as np
 import sounddevice as sd
 
 
-DEVICE = 4
-
 SAMPLE_RATE = 48000
-CHANNELS = 2
 BLOCK_SIZE = 480
 
 RMS_THRESHOLD = 0.16
@@ -24,7 +21,6 @@ class DoubleClapDetector:
     def __init__(self):
         self.first_clap = None
         self.last_clap = 0.0
-        self.last_rms = 0.0
         self.triggered = False
 
     def _is_clap(
@@ -56,17 +52,12 @@ class DoubleClapDetector:
         if peak < PEAK_THRESHOLD:
             return False
 
-        # Crest factor:
-        # claps tend to have a sharp peak compared
-        # with their average energy.
-        crest = peak / max(rms, 1e-6)
+        crest = peak / max(
+            rms,
+            1e-6,
+        )
 
         if crest < 3.0:
-            return False
-
-        # Very long/high-energy blocks are more likely
-        # to be music or speech than a clap.
-        if rms > 0.75:
             return False
 
         return True
@@ -131,7 +122,6 @@ class DoubleClapDetector:
 
             raise sd.CallbackStop()
 
-        # Wrong timing; treat this as a new first clap.
         self.first_clap = now
 
     def wait(self) -> bool:
@@ -146,10 +136,28 @@ class DoubleClapDetector:
 
         try:
 
+            input_device = (
+                sd.default.device[0]
+            )
+
+            if (
+                input_device is None
+                or input_device < 0
+            ):
+                print(
+                    "No default input device available."
+                )
+                return False
+
+            print(
+                f"Using default input device: "
+                f"{input_device}"
+            )
+
             with sd.InputStream(
-                device=DEVICE,
+                device=input_device,
                 samplerate=SAMPLE_RATE,
-                channels=CHANNELS,
+                channels=1,
                 blocksize=BLOCK_SIZE,
                 dtype="float32",
                 callback=self._callback,
@@ -162,10 +170,29 @@ class DoubleClapDetector:
             pass
 
         except sd.PortAudioError as exc:
+
             print(
                 f"Wake microphone error: {exc}"
             )
+
             time.sleep(1)
+
             return False
 
         return self.triggered
+
+
+if __name__ == "__main__":
+
+    detector = DoubleClapDetector()
+
+    while True:
+
+        result = detector.wait()
+
+        if result:
+            print(
+                "DOUBLE CLAP DETECTED"
+            )
+
+        time.sleep(1)

@@ -14,6 +14,7 @@ from agent.router import classify_command, execute_tool
 
 from ui.main_window import SundayWindow
 from ui.wake_detector import DoubleClapDetector
+from ui.hand_gesture import HandGestureController
 
 
 COMMAND_FILE = "command.wav"
@@ -39,7 +40,10 @@ EXIT_COMMANDS = {
 }
 
 
-def normalize_command(text: str) -> str:
+def normalize_command(
+    text: str,
+) -> str:
+
     text = (
         text
         .lower()
@@ -56,10 +60,16 @@ def normalize_command(text: str) -> str:
         "launch vs code": "open vscode",
     }
 
-    return replacements.get(text, text)
+    return replacements.get(
+        text,
+        text,
+    )
 
 
-def is_sleep_command(text: str) -> bool:
+def is_sleep_command(
+    text: str,
+) -> bool:
+
     normalized = (
         text
         .lower()
@@ -73,7 +83,10 @@ def is_sleep_command(text: str) -> bool:
     )
 
 
-def is_exit_command(text: str) -> bool:
+def is_exit_command(
+    text: str,
+) -> bool:
+
     normalized = (
         text
         .lower()
@@ -87,7 +100,10 @@ def is_exit_command(text: str) -> bool:
     )
 
 
-def valid_transcription(text: str) -> bool:
+def valid_transcription(
+    text: str,
+) -> bool:
+
     if not text:
         return False
 
@@ -97,7 +113,10 @@ def valid_transcription(text: str) -> bool:
         return False
 
     if len(words) >= 6:
-        unique_words = set(words)
+
+        unique_words = set(
+            words
+        )
 
         if len(unique_words) <= 3:
             return False
@@ -109,6 +128,7 @@ def valid_transcription(text: str) -> bool:
 
 
 def get_voice_command() -> str | None:
+
     audio_file = record_command(
         COMMAND_FILE
     )
@@ -116,26 +136,37 @@ def get_voice_command() -> str | None:
     if not audio_file:
         return None
 
-    print("\nTranscribing...")
+    print(
+        "\nTranscribing..."
+    )
 
     text = transcribe(
         audio_file
     ).strip()
 
-    if not valid_transcription(text):
+    if not valid_transcription(
+        text
+    ):
+
         print(
             "Ignoring unreliable transcription."
         )
+
         return None
 
-    text = normalize_command(text)
+    text = normalize_command(
+        text
+    )
 
-    print(f"You: {text}")
+    print(
+        f"You: {text}"
+    )
 
     return text
 
 
 def confirmation_response() -> bool:
+
     speak(
         "This action requires confirmation. "
         "Should I proceed?"
@@ -193,26 +224,21 @@ def speak_with_barge_in(
     text: str,
     ui: "SundayWindow",
 ) -> bool:
-    """
-    Speak while monitoring for interruption.
-
-    Returns:
-        True  = speech completed
-        False = user interrupted SUNDAY
-    """
 
     ui.set_status(
-        "SPEAKING",
-        "Speaking..."
+        "SPEAKING"
     )
 
     interrupted = False
 
     def monitor():
+
         nonlocal interrupted
 
-        interrupted = listen_for_interrupt(
-            timeout=30.0
+        interrupted = (
+            listen_for_interrupt(
+                timeout=30.0
+            )
         )
 
         if interrupted:
@@ -221,19 +247,25 @@ def speak_with_barge_in(
     monitor_thread = threading.Thread(
         target=monitor,
         daemon=True,
+        name="sunday-barge-in",
     )
 
     monitor_thread.start()
 
     try:
+
         speak(text)
+
     finally:
+
         stop_speaking()
 
     if interrupted:
+
         print(
             "SUNDAY interrupted by user."
         )
+
         return False
 
     return True
@@ -244,46 +276,58 @@ def process_command(
     ui: "SundayWindow",
 ) -> bool:
 
-    text = normalize_command(text)
+    text = normalize_command(
+        text
+    )
 
-    # -------------------------------------------------
+    # =========================================================
     # LOCAL CONTROL
-    # -------------------------------------------------
+    # =========================================================
 
     if is_exit_command(text):
-        speak("Shutting down.")
+
+        speak(
+            "Shutting down."
+        )
 
         ui.set_status(
-            "OFFLINE",
-            "SUNDAY is shutting down."
+            "OFFLINE"
         )
 
         raise SystemExit
 
     if is_sleep_command(text):
-        speak("Going quiet.")
+
+        speak(
+            "Going quiet."
+        )
 
         ui.set_status(
-            "SLEEPING",
-            "👏👏 TO WAKE"
+            "SLEEPING"
         )
 
         return False
 
-    # -------------------------------------------------
+    # =========================================================
     # THINKING
-    # -------------------------------------------------
+    # =========================================================
 
     ui.set_status(
-        "THINKING",
-        "Choosing an action..."
+        "THINKING"
     )
 
-    decision = classify_command(text)
+    decision = classify_command(
+        text
+    )
 
     print()
-    print("Tool decision:")
-    print(decision)
+    print(
+        "Tool decision:"
+    )
+
+    print(
+        decision
+    )
 
     tool = decision.get(
         "tool",
@@ -295,36 +339,40 @@ def process_command(
         {},
     )
 
-    # -------------------------------------------------
+    # =========================================================
     # PERMISSION
-    # -------------------------------------------------
+    # =========================================================
 
-    if requires_confirmation(tool):
+    if requires_confirmation(
+        tool
+    ):
 
         ui.set_status(
-            "CONFIRMING",
-            "Waiting for confirmation..."
+            "CONFIRMING"
         )
 
-        approved = confirmation_response()
+        approved = (
+            confirmation_response()
+        )
 
         if not approved:
-            speak("Cancelled.")
+
+            speak(
+                "Cancelled."
+            )
 
             ui.set_status(
-                "LISTENING",
-                "I'm listening..."
+                "LISTENING"
             )
 
             return True
 
-    # -------------------------------------------------
+    # =========================================================
     # EXECUTE
-    # -------------------------------------------------
+    # =========================================================
 
     ui.set_status(
-        "WORKING",
-        "Executing..."
+        "WORKING"
     )
 
     result = execute_tool(
@@ -336,31 +384,31 @@ def process_command(
         f"\nSunday: {result}"
     )
 
-    # -------------------------------------------------
-    # SPEAK WITH BARGE-IN
-    # -------------------------------------------------
+    # =========================================================
+    # SPEAK
+    # =========================================================
 
-    completed = speak_with_barge_in(
-        result,
-        ui,
+    completed = (
+        speak_with_barge_in(
+            result,
+            ui,
+        )
     )
 
     if not completed:
 
         ui.set_status(
-            "LISTENING",
-            "I'm listening..."
+            "LISTENING"
         )
 
         return True
 
-    # -------------------------------------------------
+    # =========================================================
     # BACK TO LISTENING
-    # -------------------------------------------------
+    # =========================================================
 
     ui.set_status(
-        "LISTENING",
-        "I'm listening..."
+        "LISTENING"
     )
 
     return True
@@ -371,8 +419,7 @@ def active_loop(
 ) -> bool:
 
     ui.set_status(
-        "LISTENING",
-        "I'm listening..."
+        "LISTENING"
     )
 
     while True:
@@ -395,34 +442,52 @@ def run_agent(
     ui: "SundayWindow",
 ):
 
-    detector = DoubleClapDetector()
+    # ---------------------------------------------------------
+    # DOUBLE-CLAP WAKE CONTROLLER
+    #
+    # This stays independent from the camera gesture system.
+    # 👏👏 remains the SUNDAY wake gesture.
+    # ---------------------------------------------------------
+
+    detector = (
+        DoubleClapDetector()
+    )
 
     active = False
 
     ui.set_status(
-        "SLEEPING",
-        "👏👏 TO WAKE",
+        "SLEEPING"
     )
 
     while True:
 
         try:
 
+            # =================================================
+            # SLEEPING
+            # =================================================
+
             if not active:
 
-                detector.wait()
+                detected = detector.wait()
+
+                if not detected:
+                    continue
 
                 ui.set_status(
-                    "WAKING",
-                    "Double clap detected",
+                    "WAKING"
                 )
 
                 speak(
                     "I'm awake. "
-                    "What do you need?",
+                    "What do you need?"
                 )
 
                 active = True
+
+            # =================================================
+            # ACTIVE
+            # =================================================
 
             else:
 
@@ -433,11 +498,11 @@ def run_agent(
                 if not active:
 
                     ui.set_status(
-                        "SLEEPING",
-                        "👏👏 TO WAKE",
+                        "SLEEPING"
                     )
 
         except SystemExit:
+
             break
 
         except Exception as exc:
@@ -447,25 +512,84 @@ def run_agent(
             )
 
             try:
+
                 speak(
                     "Something went wrong."
                 )
+
             except Exception:
                 pass
 
             ui.set_status(
-                "ERROR",
-                str(exc),
+                "ERROR"
             )
 
             time.sleep(1)
 
             ui.set_status(
-                "SLEEPING",
-                "👏👏 TO WAKE",
+                "SLEEPING"
             )
 
             active = False
+
+
+def start_hand_gesture_controller():
+    """
+    Start the camera gesture controller.
+
+    The camera subsystem is intentionally isolated from the
+    voice/wake loop so a camera/model failure cannot prevent
+    SUNDAY from starting.
+    """
+
+    try:
+
+        controller = (
+            HandGestureController()
+        )
+
+        controller.start()
+
+        print(
+            "Hand gesture controller started."
+        )
+
+        return controller
+
+    except Exception as exc:
+
+        print(
+            "Hand gesture controller "
+            f"could not start: {exc}"
+        )
+
+        return None
+
+
+def stop_hand_gesture_controller(
+    controller,
+):
+    """
+    Stop the camera gesture controller cleanly.
+    """
+
+    if controller is None:
+        return
+
+    try:
+
+        controller.stop()
+
+        print(
+            "Hand gesture controller stopped."
+        )
+
+    except Exception as exc:
+
+        print(
+            "Gesture shutdown error:",
+            exc,
+        )
 
 
 def main():
@@ -474,25 +598,83 @@ def main():
         sys.argv
     )
 
+    # =========================================================
+    # DESKTOP UI
+    # =========================================================
+
     window = SundayWindow()
 
     window.set_status(
-        "SLEEPING",
-        "👏👏 TO WAKE",
+        "SLEEPING"
     )
 
     window.show()
+
+    # =========================================================
+    # CAMERA HAND GESTURE CONTROLLER
+    #
+    # 👏👏 is still handled by DoubleClapDetector.
+    #
+    # 🖐️ Open Palm  -> display OFF
+    # ✊ Closed Fist -> display ON
+    # =========================================================
+
+    gesture_controller = (
+        start_hand_gesture_controller()
+    )
+
+    # =========================================================
+    # VOICE AGENT WORKER
+    # =========================================================
 
     worker = threading.Thread(
         target=run_agent,
         args=(window,),
         daemon=True,
+        name="sunday-agent",
     )
 
     worker.start()
 
+    # =========================================================
+    # QT EVENT LOOP
+    # =========================================================
+
+    try:
+
+        return_code = app.exec()
+
+    except KeyboardInterrupt:
+
+        print(
+            "\nStopping SUNDAY."
+        )
+
+        return_code = 0
+
+    finally:
+
+        # -----------------------------------------------------
+        # Stop camera worker first.
+        # -----------------------------------------------------
+
+        stop_hand_gesture_controller(
+            gesture_controller
+        )
+
+        # -----------------------------------------------------
+        # Stop any active TTS.
+        # -----------------------------------------------------
+
+        try:
+
+            stop_speaking()
+
+        except Exception:
+            pass
+
     sys.exit(
-        app.exec()
+        return_code
     )
 
 
