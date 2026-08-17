@@ -13,3 +13,8 @@ Talk to your laptop.
 Let SUNDAY understand the command.
 Let SUNDAY choose the correct tool.
 Let SUNDAY execute it.
+<img width="1536" height="1024" alt="4f8fb1e1-1d03-4875-b5ae-06c6c15c049a" src="https://github.com/user-attachments/assets/d3531398-1872-4c2a-8ef1-488aecc073a1" />
+
+
+
+
