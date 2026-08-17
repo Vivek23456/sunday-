@@ -6,6 +6,11 @@ SUNDAY is a local AI-powered desktop assistant designed to act as a persistent v
 
 ## 🎥 Demo
 
+Click the preview below to watch SUNDAY in action.
+
+[![SUNDAY Demo](https://github.com/Vivek23456/sunday-/raw/main/assets/sunday-demo-thumbnail.png)](https://github.com/Vivek23456/sunday-/blob/main/assets/sunday-demo.mp4)
+
+
 <video
   src="./assets/sunday-demo.mp4"
   controls
