@@ -5,6 +5,7 @@ import ollama
 import psutil
 
 from agent.permissions import requires_confirmation
+from agent.registry import registry
 
 from memory.store import memory as memory_store
 from memory.projects import (
@@ -15,16 +16,7 @@ from memory.projects import (
     project_build,
 )
 
-from tools.youtube import (
-    play_music,
-    pause_music,
-    resume_music,
-    next_track,
-    previous_track,
-    stop_music,
-    music_status,
-    start_radio,
-)
+from tools.music.registry import register_music_tools
 
 from tools.browser import open_url, search_web
 from tools.files import find_files
@@ -42,6 +34,9 @@ client = ollama.Client(
     host="http://127.0.0.1:11434",
     timeout=30,
 )
+
+
+register_music_tools()
 
 
 SYSTEM_PROMPT = """
@@ -119,29 +114,32 @@ close_all_browser_tabs
 run_shell
 {"command":"string"}
 
-youtube_play
+music_play
+{"query":"song name"}
+
+music_pause
 {}
 
-youtube_pause
+music_resume
 {}
 
-youtube_resume
+music_next
 {}
 
-youtube_next
+music_previous
 {}
 
-youtube_previous
+music_stop
 {}
 
-youtube_stop
+music_status
 {}
 
-youtube_status
-{}
+music_volume
+{"value":"integer"}
 
-youtube_radio
-{}
+music_search
+{"query":"song name"}
 
 greet
 {}
@@ -199,38 +197,41 @@ User: close vscode
 User: close all windows
 {"tool":"close_all_windows","arguments":{}}
 
-User: play music
-{"tool":"youtube_play","arguments":{}}
+User: play Believer
+{"tool":"music_play","arguments":{"query":"Believer"}}
+
+User: play the song Believer
+{"tool":"music_play","arguments":{"query":"Believer"}}
+
+User: play believer by Imagine Dragons
+{"tool":"music_play","arguments":{"query":"Believer"}}
 
 User: pause the music
-{"tool":"youtube_pause","arguments":{}}
+{"tool":"music_pause","arguments":{}}
 
 User: resume the music
-{"tool":"youtube_resume","arguments":{}}
+{"tool":"music_resume","arguments":{}}
 
 User: next song
-{"tool":"youtube_next","arguments":{}}
+{"tool":"music_next","arguments":{}}
 
 User: previous song
-{"tool":"youtube_previous","arguments":{}}
+{"tool":"music_previous","arguments":{}}
 
 User: stop the music
-{"tool":"youtube_stop","arguments":{}}
+{"tool":"music_stop","arguments":{}}
 
 User: what is playing
-{"tool":"youtube_status","arguments":{}}
+{"tool":"music_status","arguments":{}}
 
 User: what song is playing
-{"tool":"youtube_status","arguments":{}}
+{"tool":"music_status","arguments":{}}
 
-User: play something similar
-{"tool":"youtube_radio","arguments":{}}
+User: set volume to 50
+{"tool":"music_volume","arguments":{"value":50}}
 
-User: play recommended music
-{"tool":"youtube_radio","arguments":{}}
-
-User: play something like this
-{"tool":"youtube_radio","arguments":{}}
+User: find Believer
+{"tool":"music_search","arguments":{"query":"Believer"}}
 
 User: hi
 {"tool":"greet","arguments":{}}
@@ -240,7 +241,6 @@ User: hi
 
 
 def classify_command(text: str) -> dict:
-
     response = client.chat(
         model=MODEL,
         messages=[
@@ -259,10 +259,7 @@ def classify_command(text: str) -> dict:
         },
     )
 
-    raw = (
-        response["message"]["content"]
-        .strip()
-    )
+    raw = response["message"]["content"].strip()
 
     print(
         "Ollama:",
@@ -270,7 +267,6 @@ def classify_command(text: str) -> dict:
     )
 
     try:
-
         result = json.loads(raw)
 
         if not isinstance(result, dict):
@@ -281,7 +277,6 @@ def classify_command(text: str) -> dict:
         return result
 
     except Exception:
-
         print(
             "Invalid JSON from Ollama:"
         )
@@ -299,8 +294,15 @@ def execute_tool(
     arguments: dict,
 ) -> str:
 
-    if tool == "greet":
-        return "Hi. I'm Sunday."
+    # =====================================================
+    # REGISTRY TOOLS
+    # =====================================================
+
+    if registry.has(tool):
+        return registry.execute(
+            tool,
+            arguments,
+        )
 
     # =====================================================
     # APPLICATIONS
@@ -685,34 +687,6 @@ def execute_tool(
         return close_all_windows()
 
     # =====================================================
-    # YOUTUBE MUSIC
-    # =====================================================
-
-    if tool == "youtube_play":
-        return play_music()
-
-    if tool == "youtube_pause":
-        return pause_music()
-
-    if tool == "youtube_resume":
-        return resume_music()
-
-    if tool == "youtube_next":
-        return next_track()
-
-    if tool == "youtube_previous":
-        return previous_track()
-
-    if tool == "youtube_stop":
-        return stop_music()
-
-    if tool == "youtube_status":
-        return music_status()
-
-    if tool == "youtube_radio":
-        return start_radio()
-
-    # =====================================================
     # SHELL
     # =====================================================
 
@@ -763,6 +737,7 @@ def execute_tool(
             )
 
         except subprocess.TimeoutExpired:
+
             return (
                 "The command timed out."
             )
@@ -775,6 +750,7 @@ def execute_command(
 ) -> str:
 
     print()
+
     print(
         f"Agent input: {text}"
     )
@@ -806,6 +782,7 @@ def execute_command(
     ):
 
         print()
+
         print(
             "⚠️ Confirmation required."
         )
