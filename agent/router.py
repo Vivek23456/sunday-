@@ -293,26 +293,36 @@ def classify_command(text: str) -> dict:
 
     raw = response["message"]["content"].strip()
 
-    print(
-        "Ollama:",
-        raw,
-    )
+    print("Ollama:", raw)
 
     try:
         result = json.loads(raw)
 
         if not isinstance(result, dict):
-            raise ValueError(
-                "Expected JSON object"
-            )
+            raise ValueError("Expected JSON object")
+
+        tool = result.get("tool")
+
+        if not isinstance(tool, str):
+            raise ValueError("Missing tool")
+
+        tool = tool.strip()
+
+        if not tool:
+            raise ValueError("Empty tool")
+
+        arguments = result.get("arguments", {})
+
+        if not isinstance(arguments, dict):
+            raise ValueError("Arguments must be an object")
+
+        result["tool"] = tool
+        result["arguments"] = arguments
 
         return result
 
     except Exception:
-        print(
-            "Invalid JSON from Ollama:"
-        )
-
+        print("Invalid tool decision.")
         print(raw)
 
         return {
@@ -320,7 +330,7 @@ def classify_command(text: str) -> dict:
             "arguments": {},
         }
 
-
+    
 def execute_tool(
     tool: str,
     arguments: dict,

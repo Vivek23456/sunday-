@@ -122,10 +122,12 @@ class MusicPlayer:
         if not tracks:
             return "Your music library is empty."
 
-        track = random.choice(tracks)
+        random.shuffle(tracks)
 
-        self.queue = [track]
+        self.queue = tracks
         self.index = 0
+
+        track = self.queue[self.index]
 
         self._command(
             [

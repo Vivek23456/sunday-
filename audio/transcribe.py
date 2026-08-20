@@ -8,7 +8,7 @@ print("Loading Whisper model...")
 model = WhisperModel(
     MODEL_SIZE,
     device="cuda",
-    compute_type="float16",
+    compute_type="int8_float16",
 )
 
 print("Whisper ready.")
@@ -16,25 +16,19 @@ print("Whisper ready.")
 
 def transcribe(audio_file: str) -> str:
     segments, info = model.transcribe(
-        audio_file,
-        language="en",
-        task="transcribe",
+    audio_file,
+    language="en",
+    task="transcribe",
+    beam_size=1,
+    best_of=1,
+    temperature=0.0,
+    condition_on_previous_text=False,
+    vad_filter=False,
+    without_timestamps=True,
+    no_speech_threshold=0.6,
+    log_prob_threshold=-1.0,
+    compression_ratio_threshold=2.4,
 
-        beam_size=5,
-        best_of=5,
-        temperature=0.0,
-
-        condition_on_previous_text=False,
-
-        # Our recorder already performs VAD.
-        vad_filter=False,
-
-        without_timestamps=True,
-
-        # Reject obvious hallucinations/silence.
-        no_speech_threshold=0.6,
-        log_prob_threshold=-1.0,
-        compression_ratio_threshold=2.4,
     )
 
     text = " ".join(

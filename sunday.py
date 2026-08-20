@@ -14,7 +14,6 @@ from agent.router import classify_command, execute_tool
 
 from ui.main_window import SundayWindow
 from ui.wake_detector import DoubleClapDetector
-from ui.hand_gesture import HandGestureController
 
 
 COMMAND_FILE = "command.wav"
@@ -533,7 +532,6 @@ def run_agent(
             active = False
 
 
-def start_hand_gesture_controller():
     """
     Start the camera gesture controller.
 
@@ -542,54 +540,7 @@ def start_hand_gesture_controller():
     SUNDAY from starting.
     """
 
-    try:
-
-        controller = (
-            HandGestureController()
-        )
-
-        controller.start()
-
-        print(
-            "Hand gesture controller started."
-        )
-
-        return controller
-
-    except Exception as exc:
-
-        print(
-            "Hand gesture controller "
-            f"could not start: {exc}"
-        )
-
-        return None
-
-
-def stop_hand_gesture_controller(
-    controller,
-):
-    """
-    Stop the camera gesture controller cleanly.
-    """
-
-    if controller is None:
-        return
-
-    try:
-
-        controller.stop()
-
-        print(
-            "Hand gesture controller stopped."
-        )
-
-    except Exception as exc:
-
-        print(
-            "Gesture shutdown error:",
-            exc,
-        )
+     
 
 
 def main():
@@ -610,19 +561,7 @@ def main():
 
     window.show()
 
-    # =========================================================
-    # CAMERA HAND GESTURE CONTROLLER
-    #
-    # 👏👏 is still handled by DoubleClapDetector.
-    #
-    # 🖐️ Open Palm  -> display OFF
-    # ✊ Closed Fist -> display ON
-    # =========================================================
-
-    gesture_controller = (
-        start_hand_gesture_controller()
-    )
-
+     
     # =========================================================
     # VOICE AGENT WORKER
     # =========================================================
@@ -653,14 +592,6 @@ def main():
         return_code = 0
 
     finally:
-
-        # -----------------------------------------------------
-        # Stop camera worker first.
-        # -----------------------------------------------------
-
-        stop_hand_gesture_controller(
-            gesture_controller
-        )
 
         # -----------------------------------------------------
         # Stop any active TTS.
