@@ -117,8 +117,6 @@ close_browser_tab
 close_all_browser_tabs
 {}
 
-run_shell
-{"command":"string"}
 
 music_play
 {"query":"song name"}
@@ -349,6 +347,9 @@ def execute_tool(
     # =====================================================
     # APPLICATIONS
     # =====================================================
+
+    if tool == "unknown":
+        return "I didn't catch that."
 
     if tool == "open_application":
 
@@ -728,65 +729,7 @@ def execute_tool(
     if tool == "close_all_windows":
         return close_all_windows()
 
-    # =====================================================
-    # SHELL
-    # =====================================================
-
-    if tool == "run_shell":
-
-        command = (
-            arguments
-            .get("command", "")
-            .strip()
-        )
-
-        if not command:
-            return (
-                "No shell command "
-                "was provided."
-            )
-
-        try:
-
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-
-            output = (
-                result.stdout.strip()
-            )
-
-            error = (
-                result.stderr.strip()
-            )
-
-            if result.returncode != 0:
-                return (
-                    f"Command failed with "
-                    f"exit code "
-                    f"{result.returncode}.\n"
-                    f"{error}"
-                )
-
-            return (
-                output
-                or "Command completed "
-                "successfully."
-            )
-
-        except subprocess.TimeoutExpired:
-
-            return (
-                "The command timed out."
-            )
-
-    return "I didn't catch that."
-
-
+    
 def execute_command(
     text: str,
 ) -> str:

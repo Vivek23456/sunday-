@@ -14,6 +14,10 @@ from agent.router import classify_command, execute_tool
 
 from ui.main_window import SundayWindow
 from ui.wake_detector import DoubleClapDetector
+import subprocess
+from security.shutdown import verify_shutdown_pin
+
+
 
 
 COMMAND_FILE = "command.wav"
@@ -65,6 +69,94 @@ def normalize_command(
     )
 
 
+def shutdown_sunday():
+    print("Shutdown requested.")
+    print("Enter shutdown PIN:")
+
+    pin = input("> ").strip()
+
+    if pin != SHUTDOWN_PIN:
+        print("Invalid PIN. Shutdown cancelled.")
+        return
+
+    print("Correct PIN. Shutting down SUNDAY...")
+
+    subprocess.Popen(
+        [
+            "systemctl",
+            "--user",
+            "stop",
+            "sunday.service",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+def authenticate_shutdown():
+    print("Please say your shutdown PIN.")
+
+    audio_file = record_command()
+
+    if not audio_file:
+        return False
+
+    pin_text = transcribe(audio_file)
+
+    print(f"Shutdown PIN transcription: {pin_text}")
+
+    digits = "".join(
+        char for char in pin_text
+        if char.isdigit()
+    )
+
+    if not digits:
+        return False
+
+    return verify_shutdown_pin(digits)
+
+
+
+
+def protected_shutdown():
+    print("Please say your shutdown PIN.")
+
+    audio_file = record_command()
+
+    if not audio_file:
+        print("Shutdown cancelled.")
+        return
+
+    pin_text = transcribe(audio_file)
+
+    print(f"PIN transcription: {pin_text}")
+
+    digits = "".join(
+        char for char in pin_text
+        if char.isdigit()
+    )
+
+    if not digits:
+        print("No PIN detected. Shutdown cancelled.")
+        return
+
+    if not verify_shutdown_pin(digits):
+        print("Invalid PIN. Shutdown cancelled.")
+        return
+
+    print("PIN verified. Shutting down SUNDAY...")
+
+    subprocess.Popen(
+        [
+            "systemctl",
+            "--user",
+            "stop",
+            "sunday.service",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    
 def is_sleep_command(
     text: str,
 ) -> bool:
@@ -143,6 +235,17 @@ def get_voice_command() -> str | None:
         audio_file
     ).strip()
 
+    command = text.strip().lower()
+
+    if command in {
+        "shutdown sunday",
+        "shut down sunday",
+        "stop sunday",
+        "turn off sunday",
+    }:
+        protected_shutdown()
+        return 
+    
     if not valid_transcription(
         text
     ):
