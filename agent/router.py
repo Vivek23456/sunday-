@@ -54,6 +54,12 @@ TOOLS:
 open_application
 {"name":"vscode|chrome|terminal"}
 
+music_playlist
+{"name":"playlist name"}
+
+music_random_playlist
+{"name":"playlist name"}
+
 system_status
 {}
 
@@ -148,6 +154,32 @@ unknown
 {}
 
 EXAMPLES:
+User: play something random
+{"tool":"music_random","arguments":{}}
+
+User: play my Gym playlist
+{"tool":"music_playlist","arguments":{"name":"Gym"}}
+
+User: play Hindi music
+{"tool":"music_playlist","arguments":{"name":"Hindi"}}
+
+User: play something random from Gym
+{"tool":"music_random_playlist","arguments":{"name":"Gym"}}
+
+User: play a random song from Hindi
+{"tool":"music_random_playlist","arguments":{"name":"Hindi"}}
+
+User: play a random song
+{"tool":"music_random","arguments":{}}
+
+User: surprise me
+{"tool":"music_random","arguments":{}}
+
+User: pick a random song
+{"tool":"music_random","arguments":{}}
+
+User: play anything
+{"tool":"music_random","arguments":{}}
 
 User: open vscode
 {"tool":"open_application","arguments":{"name":"vscode"}}

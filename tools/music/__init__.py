@@ -1,7 +1,8 @@
-"""SUNDAY local music subsystem."""
-
 from tools.music.player import (
     play_music,
+    random_music,
+    play_playlist,
+    play_random_playlist,
     pause_music,
     resume_music,
     next_track,
@@ -9,11 +10,14 @@ from tools.music.player import (
     stop_music,
     music_status,
     set_volume,
-    random_music,
 )
+
 
 __all__ = [
     "play_music",
+    "random_music",
+    "play_playlist",
+    "play_random_playlist",
     "pause_music",
     "resume_music",
     "next_track",
@@ -21,5 +25,4 @@ __all__ = [
     "stop_music",
     "music_status",
     "set_volume",
-    "random_music",
 ]

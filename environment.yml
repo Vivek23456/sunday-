@@ -6,9 +6,15 @@ channels:
 dependencies:
   - python=3.12
   - pip
+  - setuptools=80.9.0
   - pip:
+      - PySide6
       - ollama
       - psutil
       - playwright
       - mutagen
       - yt-dlp
+      - numpy
+      - sounddevice
+      - scipy
+      - webrtcvad

@@ -1,13 +1,17 @@
 import json
 import os
+import random
 import socket
 import subprocess
 import sys
 import time
 
-from tools.music.library import search
 from tools.music.models import PlayerState, Track
-
+from tools.music.library import (
+    scan_library,
+    search,
+    playlist_tracks,
+)
 
 IPC_SOCKET = "/tmp/sunday-mpv.sock"
 
@@ -80,6 +84,8 @@ class MusicPlayer:
                 (json.dumps(payload) + "\n").encode()
             )
 
+
+
     def play(self, query: str) -> str:
         matches = search(query)
 
@@ -110,6 +116,33 @@ class MusicPlayer:
 
         return f"Playing {track}."
 
+    def random(self) -> str:
+        tracks = scan_library()
+
+        if not tracks:
+            return "Your music library is empty."
+
+        track = random.choice(tracks)
+
+        self.queue = [track]
+        self.index = 0
+
+        self._command(
+            [
+                "loadfile",
+                str(track.path),
+                "replace",
+            ]
+        )
+
+        self.state = PlayerState(
+            current=track,
+            status="playing",
+            index=0,
+        )
+
+        return f"Playing random track: {track}."
+
     def pause(self) -> str:
         self._command(
             [
@@ -133,22 +166,37 @@ class MusicPlayer:
         return "Music resumed."
 
     def stop(self) -> str:
-        self._command(["stop"])
+        self._command(
+            ["stop"]
+        )
 
         return "Music stopped."
 
     def next(self) -> str:
-        self._command(["playlist-next", "force"])
+        self._command(
+            [
+                "playlist-next",
+                "force",
+            ]
+        )
 
         return "Playing next track."
 
     def previous(self) -> str:
-        self._command(["playlist-prev", "force"])
+        self._command(
+            [
+                "playlist-prev",
+                "force",
+            ]
+        )
 
         return "Playing previous track."
 
     def volume(self, value: int) -> str:
-        value = max(0, min(100, value))
+        value = max(
+            0,
+            min(100, value),
+        )
 
         self._command(
             [
@@ -159,7 +207,76 @@ class MusicPlayer:
         )
 
         return f"Volume set to {value}%."
+    
 
+    def play_playlist(self, name: str) -> str:
+        tracks = playlist_tracks(name)
+
+        if not tracks:
+            return (
+                f"I couldn't find the playlist "
+                f"'{name}'."
+            )
+
+        self.queue = tracks
+        self.index = 0
+
+        track = self.queue[self.index]
+
+        self._command(
+            [
+                "loadfile",
+                str(track.path),
+                "replace",
+            ]
+        )
+
+        self.state = PlayerState(
+            current=track,
+            status="playing",
+            index=0,
+        )
+
+        return (
+            f"Playing {name} playlist "
+            f"with {len(tracks)} tracks."
+        )
+
+    def play_random_playlist(self, name: str) -> str:
+        tracks = playlist_tracks(name)
+
+        if not tracks:
+            return (
+                f"I couldn't find the playlist "
+                f"'{name}'."
+            )
+
+        random.shuffle(tracks)
+
+        self.queue = tracks
+        self.index = 0
+
+        track = self.queue[self.index]
+
+        self._command(
+            [
+                "loadfile",
+                str(track.path),
+                "replace",
+            ]
+        )
+
+        self.state = PlayerState(
+            current=track,
+            status="playing",
+            index=0,
+        )
+
+        return (
+            f"Playing a random track "
+            f"from {name}: {track}."
+        )
+    
     def status(self) -> str:
         if not self._socket_alive():
             return "Music player is not running."
@@ -170,8 +287,14 @@ class MusicPlayer:
 player = MusicPlayer()
 
 
-def play_music(query: str) -> str:
+def play_music(
+    query: str,
+) -> str:
     return player.play(query)
+
+
+def random_music() -> str:
+    return player.random()
 
 
 def pause_music() -> str:
@@ -189,6 +312,9 @@ def next_track() -> str:
 def previous_track() -> str:
     return player.previous()
 
+def play_playlist(name: str) -> str:
+    return player.play_playlist(name)
+
 
 def stop_music() -> str:
     return player.stop()
@@ -197,19 +323,34 @@ def stop_music() -> str:
 def music_status() -> str:
     return player.status()
 
+def play_playlist(name: str) -> str:
+    return player.play_playlist(name)
 
-def set_volume(value: int) -> str:
+
+def play_random_playlist(name: str) -> str:
+    return player.play_random_playlist(name)
+
+
+def set_volume(
+    value: int,
+) -> str:
     return player.volume(value)
 
 
 if __name__ == "__main__":
+
     if len(sys.argv) < 2:
         print(
             "Usage: "
             "python3 -m tools.music.player <song>"
         )
+
         raise SystemExit(1)
 
-    query = " ".join(sys.argv[1:])
+    query = " ".join(
+        sys.argv[1:]
+    )
 
-    print(play_music(query))
+    print(
+        play_music(query)
+    )
