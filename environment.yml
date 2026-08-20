@@ -1,0 +1,14 @@
+name: sunday
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - ollama
+      - psutil
+      - playwright
+      - mutagen
+      - yt-dlp
